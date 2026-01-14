@@ -76,10 +76,7 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 ---
 
 ## 5. 📸 Media & Gallery
-Want to see the sign in action? You can view high-resolution build photos and a video demonstration in our [Media Gallery](./Media).
-
-* **Construction Photos:** Detailed shots of the internal wiring and 5V power injection.
-* **Video Demo:** The sign synchronising with Studio One transport controls in real-time.
+A couple of build pics and some videos are here: [Media Gallery](./Media).
 
 ---
 
