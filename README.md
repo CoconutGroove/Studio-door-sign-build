@@ -1,6 +1,6 @@
 # MCU Transport Display: Coconut Groove Studio
 
-A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **ESP32** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix outside the studio, and a simple light box inside to indicate status.
+A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **ESP32** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix.
 
 ---
 
@@ -42,11 +42,9 @@ To get the code onto your device, follow these steps:
     * Search for and install **AppleMIDI**.
 4.  **Connect & Upload:**
     * Connect your ESP32 via USB.
-    * Go to **Tools > Board** and select **ESP32 Dev Module**.
-    * Go to **Tools > Port** and select your board's COM/USB port.
+    * Select **ESP32 Dev Module** under Tools > Board.
+    * Select your board's COM/USB port under Tools > Port.
     * Click the **Upload** arrow icon.
-
-
 
 ---
 
@@ -91,4 +89,12 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 | **Flickering** | Power/Ground | Check common ground and add a 330Ω resistor to data lines. |
 
 ---
-*Developed for Coconut Groove Studio | 2026*
+
+## 6. Licence & Support
+This project is shared as **Open Source** under the **MIT Licence**. 
+
+**Important Notice:**
+* This project is provided "as-is" for the community. 
+* **No technical support or troubleshooting assistance is provided.** * You are free to fork the repository and adapt the code for your own studio needs.
+
+*Designed for Coconut Groove Studio | 2026*
