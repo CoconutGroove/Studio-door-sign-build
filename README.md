@@ -1,6 +1,6 @@
 # MCU Transport Display: Coconut Groove Studio
 
-A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **ESP32** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix.
+A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **ESP32** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix outside the studio, and a simple light box inside to indicate status.
 
 ---
 
@@ -13,7 +13,7 @@ The firmware is designed with a priority-state hierarchy to ensure the display i
     * **Note 0x5F (95):** Set State to **RECORD**.
     * **Note 0x5E (94):** Set State to **PLAYBACK**.
     * **Note 0x5D (93):** Set State to **IDLE/STOP**.
-* **Stage 4: Rendering Engine:** The code translates (x, y) coordinates to a **Serpentine Layout** to ensure text scrolls correctly across the zigzag wiring of the matrix.
+* **Stage 4: Rendering Engine:** The code translates (X, Y) coordinates to a **Serpentine Layout** to ensure text scrolls correctly across the zigzag wiring of the matrix.
 
 ---
 
@@ -24,20 +24,40 @@ The firmware is designed with a priority-state hierarchy to ensure the display i
 
 1.  **Matrix (Outside):** Connect Data Input (DI) to **GPIO 18**.
 2.  **Status Strip (Inside):** Connect Data Input (DI) to **GPIO 19**.
-3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. Ensure the ESP32 and LEDs share a **Common Ground**.
+3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. Ensure the ESP32 and LEDs share a **Common Ground** (GND) connection.
 
 ### Software & Code
-1.  **Libraries:** Install `Adafruit_NeoPixel` and `AppleMIDI` in the Arduino IDE.
-2.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file from this repository.
-3.  **Configuration:** Customise the `ssid`, `pass`, and `STUDIO_NAME` variables at the top of the sketch before uploading.
+1.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file from this repository.
+2.  **Configuration:** Open the sketch in the Arduino IDE and customise the `ssid`, `pass`, and `STUDIO_NAME` variables at the top of the file.
 
-### DAW Connectivity
+### Programming the ESP32
+To get the code onto your device, follow these steps:
+
+1.  **Install Arduino IDE:** Download the latest version from the [Arduino website](https://www.arduino.cc/en/software).
+2.  **Add ESP32 Support:** * Open **File > Preferences**.
+    * In "Additional Boards Manager URLs", paste: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
+    * Go to **Tools > Board > Boards Manager**, search for **ESP32**, and click **Install**.
+3.  **Install Required Libraries:** * Go to **Sketch > Include Library > Manage Libraries**.
+    * Search for and install **Adafruit NeoPixel**.
+    * Search for and install **AppleMIDI**.
+4.  **Connect & Upload:**
+    * Connect your ESP32 via USB.
+    * Go to **Tools > Board** and select **ESP32 Dev Module**.
+    * Go to **Tools > Port** and select your board's COM/USB port.
+    * Click the **Upload** arrow icon.
+
+
+
+---
+
+## 3. DAW Connectivity
 
 #### **For Mac Users (Native Setup)**
 macOS handles this natively via the "MIDI Network Driver":
-1.  Open **Audio MIDI Setup** > **Show MIDI Studio**.
-2.  Click the **Network** (Globe) icon.
-3.  In **Directory**, select your ESP32 and click **Connect**. Ensure the session is **Enabled**.
+1.  Open **Audio MIDI Setup** (Applications > Utilities).
+2.  Go to **Window > Show MIDI Studio**.
+3.  Double-click the **Network** icon (the globe).
+4.  In the **Directory**, select your ESP32 and click **Connect**. Ensure the session is **Enabled**.
 
 
 
@@ -50,7 +70,7 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 
 ---
 
-## 3. Bill of Materials (BOM)
+## 4. Bill of Materials (BOM)
 
 | Component | Specification | Quantity | Purpose |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +81,7 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 
 ---
 
-## 4. Troubleshooting
+## 5. Troubleshooting
 
 | Issue | Likely Cause | Solution |
 | :--- | :--- | :--- |
