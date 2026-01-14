@@ -20,8 +20,6 @@ The firmware is designed with a priority-state hierarchy to ensure the display i
 ## 2. Construction Manual
 
 ### Hardware Wiring
-
-
 1.  **Matrix (Outside):** Connect Data Input (DI) to **GPIO 18**.
 2.  **Status Strip (Inside):** Connect Data Input (DI) to **GPIO 19**.
 3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. Ensure the ESP32 and LEDs share a **Common Ground** (GND) connection.
@@ -57,8 +55,6 @@ macOS handles this natively via the "MIDI Network Driver":
 3.  Double-click the **Network** icon (the globe).
 4.  In the **Directory**, select your ESP32 and click **Connect**. Ensure the session is **Enabled**.
 
-
-
 #### **For Windows Users (rtpMIDI)**
 1.  Install **rtpMIDI** (by Tobias Erichsen).
 2.  Create a session, find your device in the directory, and click **Connect**.
@@ -79,7 +75,15 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 
 ---
 
-## 5. Troubleshooting
+## 5. 📸 Media & Gallery
+Want to see the sign in action? You can view high-resolution build photos and a video demonstration in our [Media Gallery](./Media).
+
+* **Construction Photos:** Detailed shots of the internal wiring and 5V power injection.
+* **Video Demo:** The sign synchronising with Studio One transport controls in real-time.
+
+---
+
+## 6. Troubleshooting
 
 | Issue | Likely Cause | Solution |
 | :--- | :--- | :--- |
@@ -90,7 +94,7 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 
 ---
 
-## 6. Licence & Support
+## 7. Licence & Support
 This project is shared as **Open Source** under the **MIT Licence**. 
 
 **Important Notice:**
