@@ -7,13 +7,13 @@ A high-visibility hardware status display for **PreSonus Studio One**. This proj
 ## 1. System Logic & Algorithm
 The firmware is designed with a priority-state hierarchy to ensure the display is always accurate and energy-efficient:
 
-* **Stage 1: Connection Health:** The system first verifies Wi-Fi status. If disconnected, it triggers "Recovery Mode," pulsing a `No Wifi` message while attempting to reconnect every 5 seconds.
+* **Stage 1: Connection Health:** The system verifies Wi-Fi status. If disconnected, it triggers "Recovery Mode," pulsing a `No Wifi` message while attempting to reconnect every 5 seconds.
 * **Stage 2: Session Monitoring:** It uses rtpMIDI "Heartbeats" to see if the DAW is active. If the session is closed, the display blanks automatically to prevent LED burn-in.
 * **Stage 3: MCU MIDI Parsing:** The ESP32 listens for specific MIDI Note-On triggers sent by the DAW:
     * **Note 0x5F (95):** Set State to **RECORD**.
     * **Note 0x5E (94):** Set State to **PLAYBACK**.
     * **Note 0x5D (93):** Set State to **IDLE/STOP**.
-* **Stage 4: Rendering Engine:** The code maps (x, y) coordinates to a **Serpentine Layout** to ensure text scrolls correctly across the zigzag wiring of the matrix.
+* **Stage 4: Rendering Engine:** The code translates (x, y) coordinates to a **Serpentine Layout** to ensure text scrolls correctly across the zigzag wiring of the matrix.
 
 ---
 
@@ -29,7 +29,7 @@ The firmware is designed with a priority-state hierarchy to ensure the display i
 ### Software & Code
 1.  **Libraries:** Install `Adafruit_NeoPixel` and `AppleMIDI` in the Arduino IDE.
 2.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file from this repository.
-3.  **Configuration:** Customise the `ssid`, `pass`, and `STUDIO_NAME` variables at the top of the sketch before uploading to your ESP32.
+3.  **Configuration:** Customise the `ssid`, `pass`, and `STUDIO_NAME` variables at the top of the sketch before uploading.
 
 ### DAW Connectivity
 
@@ -38,6 +38,8 @@ macOS handles this natively via the "MIDI Network Driver":
 1.  Open **Audio MIDI Setup** > **Show MIDI Studio**.
 2.  Click the **Network** (Globe) icon.
 3.  In **Directory**, select your ESP32 and click **Connect**. Ensure the session is **Enabled**.
+
+
 
 #### **For Windows Users (rtpMIDI)**
 1.  Install **rtpMIDI** (by Tobias Erichsen).
@@ -54,7 +56,7 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 | :--- | :--- | :--- | :--- |
 | **Microcontroller** | ESP32 DevBoard | 1 | System Brain |
 | **LED Matrix** | WS2812B 8x32 Flexible | 1 | External Signage |
-| **Internal LEDs** | WS2812B LED Strip | ~24 LEDs | Internal Tally Light |
+| **Internal LEDs** | WS2812B LED Strip | ~24 LEDs | Internal Studio Tally |
 | **Power Supply** | 5V DC / 4A | 1 | Reliable Power |
 
 ---
@@ -69,4 +71,4 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 | **Flickering** | Power/Ground | Check common ground and add a 330Ω resistor to data lines. |
 
 ---
-*Developed by Coconut Groove Studio | 2026*
+*Developed for Coconut Groove Studio | 2026*
