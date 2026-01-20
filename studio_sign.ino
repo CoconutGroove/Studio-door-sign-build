@@ -1,69 +1,62 @@
-/* * Project: Universal Studio Transport Display (MCU over rtpMIDI)
- * Hardware: ESP32 Dev Board & 8x32 NeoPixel Matrix (WS2812B)
- * Creator: Coconut Groove Studio
- * * DESCRIPTION:
- * This sketch connects to a DAW (like Studio One) via rtpMIDI using the 
- * Mackie Control Universal (MCU) protocol. It displays real-time 
- * transport status: Idle, Playback, and Recording.
- * * REQUIRED LIBRARIES:
- * 1. AppleMIDI (by Francois Best)
- * 2. Adafruit NeoPixel (by Adafruit)
- * 3. WiFi (Built-in ESP32)
+/*
+ * Studio One MIDI Monitor - Universal Edition
+ * -----------------------------------------------
+ * Target: Adafruit Feather M0 WiFi (ATWINC1500)
+ * Function: Monitors Studio One via rtpMIDI for transport status.
+ *
+ * Wiring:
+ * - Matrix (Outside): Pin 18 (A4)
+ * - Tally Strip (Inside): Pin 19 (A5)
  */
 
-#include <WiFi.h>
+#include <WiFi101.h>
 #include <WiFiUdp.h>
 #include <AppleMIDI.h>
 #include <Adafruit_NeoPixel.h>
 
-// --- USER CONFIGURATION (Change these) ---
-char const ssid[] = "YOUR_WIFI_SSID";          // Replace with your WiFi Name
-char const pass[] = "YOUR_WIFI_PASSWORD";      // Replace with your WiFi Password
-const char* STUDIO_NAME = "YOUR STUDIO NAME ";  // Note the space at the end for scrolling
+// =============================================================================
+//                             USER CONFIGURATION
+// =============================================================================
+char const ssid[] = "YOUR_WIFI_NAME";         // Replace with your WiFi SSID
+char const pass[] = "YOUR_WIFI_PASSWORD";     // Replace with your WiFi Password
 
-// --- HARDWARE PIN MAPPING ---
-#define INSIDE_PIN     19    // Status LED strip inside the studio
-#define OUTSIDE_PIN    18    // 8x32 Matrix outside the door
-#define NUM_INSIDE     24    // Number of LEDs in the internal strip
-#define LED_COUNT      256   // Total LEDs in 8x32 matrix (8 * 32)
+// Network Settings (Adjust to match your router's range)
+IPAddress local_IP(192, 168, 1, 202);         // Desired Static IP for this device
+IPAddress gateway(192, 168, 1, 1);            // Your Router's IP Address
+IPAddress subnet(255, 255, 255, 0);
+IPAddress studioOneIP(192, 168, 1, 64);       // The IP of the PC running Studio One
 
-// --- NETWORK CONFIGURATION ---
-// Set a static IP to ensure rtpMIDI connects reliably every time
-IPAddress local_IP(192, 168, 1, 202); 
-IPAddress gateway(192, 168, 1, 1);    
-IPAddress subnet(255, 255, 255, 0);   
+// Display Settings
+const char* STUDIO_NAME = "YOUR STUDIO NAME "; // Scrolling text for IDLE mode
+// =============================================================================
 
-// --- GLOBAL VARIABLES ---
+// --- PIN & PIXEL CONFIG ---
+#define MATRIX_PIN      18    
+#define INTERNAL_PIN    19   
+#define MATRIX_COUNT    256 
+#define INTERNAL_COUNT  24   
+
+Adafruit_NeoPixel matrix(MATRIX_COUNT, MATRIX_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel internal(INTERNAL_COUNT, INTERNAL_PIN, NEO_GRB + NEO_KHZ800);
+
+// MIDI Instance on Port 5006
+APPLEMIDI_CREATE_INSTANCE(WiFiUDP, MIDI, "Studio-Display", 5006); 
+
+// --- HEARTBEAT & STATUS ---
+unsigned long lastMidiActivity = 0;
+const unsigned long timeoutLimit = 10000; 
+int currentStatus = 0; 
+
+// --- ANIMATION VARIABLES ---
 unsigned long lastPPMUpdate = 0;
-unsigned long lastScrollTime = 0;
-unsigned long lastWiFiCheck = 0; 
+unsigned long lastDisplayUpdate = 0;
 int ppmLevels[4] = {0,0,0,0};
 float scannerPos = 3.0;
 float scannerDir = 0.56;
 uint16_t rainbowHue = 0;
 int scrollX = 32;
-int activeSessions = 0;  // Tracks if rtpMIDI session is active
-int currentStatus = 0;   // 0=Idle, 1=Playback, 2=Recording
-
-uint32_t colBlue  = 0x0000FF; 
-uint32_t colGreen = 0x00FF00; 
-
-Adafruit_NeoPixel inside(NUM_INSIDE, INSIDE_PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel matrix(LED_COUNT, OUTSIDE_PIN, NEO_GRB + NEO_KHZ800);
-
-// Create MIDI Instance
-APPLEMIDI_CREATE_INSTANCE(WiFiUDP, MIDI, "Studio Sign", DEFAULT_CONTROL_PORT);
-
-// --- MATRIX COORDINATE HELPER ---
-// Maps X/Y coordinates to a serpentine/zigzag LED matrix layout
-void drawPixel(int x, int y, uint32_t color) {
-  if (x < 0 || x >= 32 || y < 0 || y >= 8) return;
-  int index = (x % 2 == 0) ? (x * 8) + y : (x * 8) + (7 - y);
-  matrix.setPixelColor(index, color);
-}
 
 // --- FONT DATA ---
-// Bitmasks for a 5x7 custom font
 const uint8_t font8[][5] = {
   {0x7f, 0x02, 0x04, 0x08, 0x7f}, {0x38, 0x44, 0x44, 0x38, 0x00}, {0x7f, 0x10, 0x08, 0x10, 0x7f},
   {0x00, 0x44, 0x7d, 0x40, 0x00}, {0x08, 0x7e, 0x09, 0x01, 0x00}, {0x3e, 0x41, 0x41, 0x41, 0x22},
@@ -74,15 +67,21 @@ const uint8_t font8[][5] = {
   {0x1f, 0x20, 0x40, 0x20, 0x1f}, {0x7f, 0x49, 0x49, 0x49, 0x41}, {0x00, 0x00, 0x00, 0x00, 0x00}
 };
 
+void drawPixel(int x, int y, uint32_t color) {
+  if (x < 0 || x >= 32 || y < 0 || y >= 8) return;
+  int index = (x % 2 == 0) ? (x * 8) + y : (x * 8) + (7 - y);
+  matrix.setPixelColor(index, color);
+}
+
 void drawChar(char c, int x, int y, uint32_t color) {
-  int idx = 20; // Default to space
-  if (c == 'N') idx = 0;      else if (c == 'o') idx = 1; 
+  int idx = 20; 
+  if (c == 'N') idx = 0;       else if (c == 'o') idx = 1; 
   else if (c == 'W') idx = 2; else if (c == 'i') idx = 3; 
   else if (c == 'f') idx = 4; else if (c == 'C') idx = 5; 
   else if (c == 'O') idx = 6; else if (c == 'U') idx = 8; 
   else if (c == 'T') idx = 9; else if (c == 'P') idx = 10;
   else if (c == 'L') idx = 11;else if (c == 'A') idx = 12;
-  else if (c == 'Y') idx = 13;else if (c == 'B') idx = 14;
+  else if (c == 'Y') idx = 13;else if (c == 'B' || c == 'S') idx = 14;
   else if (c == 'K') idx = 15;else if (c == 'G') idx = 16;
   else if (c == 'R') idx = 17;else if (c == 'V') idx = 18;
   else if (c == 'E') idx = 19;
@@ -94,31 +93,6 @@ void drawChar(char c, int x, int y, uint32_t color) {
   }
 }
 
-// Visual feedback when WiFi connection is lost
-void drawCenteredWiFi() {
-  float pulse = (sin(millis() / 400.0) * 100.0) + 100.0; 
-  uint32_t purple = matrix.Color((int)pulse, 0, (int)pulse);
-  drawChar('N', 1, 1, purple); drawChar('o', 7, 1, purple); drawChar('W', 14, 1, purple); 
-  drawChar('i', 19, 1, purple); drawChar('f', 23, 1, purple); drawChar('i', 27, 1, purple); 
-}
-
-// --- MIDI HANDLERS ---
-// Parses Mackie Control Protocol Notes for Transport
-void doNoteOn(byte channel, byte pitch, byte velocity) {
-  if (velocity == 0) { currentStatus = 0; } 
-  else {
-    if (pitch == 0x5F) currentStatus = 2;       // MCU Record Button
-    else if (pitch == 0x5E) currentStatus = 1;  // MCU Play Button
-    else if (pitch == 0x5D) currentStatus = 0;  // MCU Stop Button
-  }
-}
-
-void doNoteOff(byte channel, byte pitch, byte velocity) {
-  if (pitch == 0x5F || pitch == 0x5E) currentStatus = 0;
-}
-
-// --- ANIMATION ROUTINES ---
-// Simulates Audio Meters (PPM) on the matrix sides
 void drawPPM(int startX, int offset) {
   for (int ch = 0; ch < 2; ch++) {
     int level = ppmLevels[ch + offset];
@@ -131,7 +105,6 @@ void drawPPM(int startX, int offset) {
   }
 }
 
-// Renders the flashing "RECORD" text and graphics
 void drawPulsingRecord(int x, int y) {
   float pulse = (sin(millis() / 125.0) * 127.5) + 127.5; 
   uint32_t col = matrix.Color((int)pulse, 0, 0);
@@ -148,8 +121,6 @@ void drawPulsingRecord(int x, int y) {
   for(int i=0; i<5; i++) { drawPixel(x+13, y+i, col); drawPixel(x+16, y+i, col); } 
   drawPixel(x+14,y,col); drawPixel(x+15,y,col); drawPixel(x+14,y+4,col); drawPixel(x+15,y+4,col);
   drawR(18); 
-  
-  // Custom drawn 'D' to fit the space
   for(int i=0; i<5; i++) drawPixel(x+23, y+i, col);
   drawPixel(x+24, y, col); drawPixel(x+25, y, col);
   drawPixel(x+26, y+1, col); drawPixel(x+26, y+2, col); drawPixel(x+26, y+3, col);
@@ -178,74 +149,104 @@ void drawStudioRecord() {
   drawPulsingRecord(3, 1);
 }
 
-// Logic for moving text across the 32-column matrix
-void handleScrolling(const char* text, uint32_t color) {
-  if (millis() - lastScrollTime > 24) { 
-    lastScrollTime = millis(); 
-    scrollX--; 
-    if (scrollX < (int)(strlen(text) * -6)) scrollX = 32; 
-  }
-  int xPos = scrollX;
-  for (int i = 0; i < (int)strlen(text); i++) { 
-    drawChar(text[i], xPos, 1, color); 
-    xPos += 6; 
+void doNoteOn(byte channel, byte pitch, byte velocity) {
+  lastMidiActivity = millis();
+  if (velocity == 0) { currentStatus = 0; } 
+  else {
+    if (pitch == 0x5F) currentStatus = 2;      
+    else if (pitch == 0x5E) currentStatus = 1; 
+    else if (pitch == 0x5D) { currentStatus = 0; scrollX = 32; }
   }
 }
 
-// --- SETUP ---
 void setup() {
-  inside.begin(); matrix.begin();
-  inside.setBrightness(150); matrix.setBrightness(40);
+  WiFi.setPins(8, 7, 4, 2); 
+  matrix.begin();
+  matrix.setBrightness(40);
+  internal.begin();
+  internal.setBrightness(150);
   
-  // Set Static IP and Connect
   WiFi.config(local_IP, gateway, subnet);
   WiFi.begin(ssid, pass);
-
-  // Initialize MIDI Logic
-  MIDI.begin(MIDI_CHANNEL_OMNI);
+  
+  MIDI.begin(1);
   MIDI.setHandleNoteOn(doNoteOn);
-  MIDI.setHandleNoteOff(doNoteOff);
 
-  // Monitor rtpMIDI connections
-  AppleMIDI.setHandleConnected([](auto, const char* name) { activeSessions++; });
-  AppleMIDI.setHandleDisconnected([](auto) { if (activeSessions > 0) activeSessions--; });
+  AppleMIDI.setHandleConnected([](uint32_t ssrc, const char* name) {
+    isPCConnected = true;
+  });
+  AppleMIDI.setHandleDisconnected([](uint32_t ssrc) {
+    isPCConnected = false;
+  });
+
+  lastMidiActivity = millis();
 }
 
-// --- MAIN LOOP ---
 void loop() {
-  // 1. Check WiFi Health (Self-Healing)
-  if (WiFi.status() != WL_CONNECTED) {
-    matrix.clear(); drawCenteredWiFi(); matrix.show();
-    inside.clear(); inside.show();
-    if (millis() - lastWiFiCheck > 5000) { WiFi.begin(ssid, pass); lastWiFiCheck = millis(); }
-    return; 
+  unsigned long now = millis();
+  int wifiStatus = WiFi.status();
+
+  if (wifiStatus != WL_CONNECTED) {
+    isPCConnected = false;
+    wasConnected = false;
+    matrix.clear();
+    float pulse = (sin(now / 100.0) * 100.0) + 100.0; 
+    uint32_t purple = matrix.Color((int)pulse, 0, (int)pulse);
+    drawChar('N', 1, 1, purple); drawChar('o', 7, 1, purple); drawChar('W', 14, 1, purple); 
+    drawChar('i', 19, 1, purple); drawChar('f', 23, 1, purple); drawChar('i', 27, 1, purple); 
+    matrix.show();
+    
+    if (now - lastWiFiCheck > 10000) {
+      WiFi.begin(ssid, pass);
+      lastWiFiCheck = now;
+    }
+    return;
+  } 
+
+  if (wifiStatus == WL_CONNECTED && !wasConnected) {
+    wasConnected = true;
+    MIDI.begin(1); 
   }
 
-  // 2. Read incoming MIDI data
   MIDI.read();
-
-  // 3. Auto-Sleep: If no active MIDI session, blank the display
-  if (activeSessions <= 0) {
-    matrix.clear(); matrix.show();
-    inside.clear(); inside.show();
+  
+  if (now - lastMidiActivity > timeoutLimit) {
+    matrix.clear();
+    matrix.show();
+    internal.clear();
+    internal.show();
     return; 
   }
 
-  // 4. Handle Visual States
-  matrix.clear();
-  if (currentStatus == 2) { // RECORDING
-    drawStudioRecord(); 
-    float pulse = (sin(millis() / 125.0) * 127.5) + 127.5;
-    for(int i=0; i<NUM_INSIDE; i++) inside.setPixelColor(i, inside.Color(pulse, 0, 0));
-  } 
-  else if (currentStatus == 1) { // PLAYBACK
-    handleScrolling("PLAYBACK ", colGreen);
-    for(int i=0; i<NUM_INSIDE; i++) inside.setPixelColor(i, colGreen);
-  } 
-  else { // IDLE / STOPPED
-    handleScrolling(STUDIO_NAME, colBlue);
-    inside.clear();
+  if (now - lastDisplayUpdate > 25) { 
+    lastDisplayUpdate = now;
+    matrix.clear();
+    if (currentStatus == 2) { 
+      drawStudioRecord(); 
+      float pulse = (sin(now / 125.0) * 127.5) + 127.5;
+      for(int i=0; i<INTERNAL_COUNT; i++) internal.setPixelColor(i, internal.Color(pulse, 0, 0));
+    } 
+    else if (currentStatus == 1) { 
+      scrollX--;
+      if (scrollX < -54) scrollX = 32; 
+      int xPos = scrollX;
+      const char* t = "PLAYBACK ";
+      for (int i = 0; i < 9; i++) { drawChar(t[i], xPos, 1, 0x00FF00); xPos += 6; }
+      for(int i=0; i<INTERNAL_COUNT; i++) internal.setPixelColor(i, 0x00FF00);
+    } 
+    else { 
+      scrollX--;
+      // Calculate scroll length dynamically based on STUDIO_NAME length
+      int textWidth = strlen(STUDIO_NAME) * 6;
+      if (scrollX < -textWidth) scrollX = 32;
+      int xPos = scrollX;
+      for (int i = 0; i < strlen(STUDIO_NAME); i++) { 
+          drawChar(STUDIO_NAME[i], xPos, 1, 0x0000FF); 
+          xPos += 6; 
+      }
+      internal.clear();
+    }
+    matrix.show();
+    internal.show();
   }
-  matrix.show();
-  inside.show();
 }
