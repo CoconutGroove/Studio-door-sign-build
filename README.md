@@ -21,9 +21,9 @@ The firmware is designed with a priority-state hierarchy to ensure the display i
 ## 2. Construction Manual
 
 ### Hardware Wiring
-1.  **Matrix (Outside):** Connect Data Input (DI) to **Pin 18** (A4).
-2.  **Status Strip (Inside):** Connect Data Input (DI) to **Pin 19** (A5).
-3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. **Important:** Ensure the Feather GND and LED PSU GND are tied together (Common Ground).
+1.  **Matrix (Outside):** Connect Data Input (DI) to **Pin 6**.
+2.  **Status Strip (Inside):** Connect Data Input (DI) to **Pin 11**.
+3.  **Power:** Connect a dedicated **5V 3A power supply** to the LED rails. **Important:** Ensure the Feather GND and LED PSU GND are tied together (Common Ground).
 
 ### Software & Code
 1.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file.
