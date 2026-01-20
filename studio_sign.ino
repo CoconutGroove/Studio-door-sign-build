@@ -31,8 +31,8 @@ const char* STUDIO_NAME = "YOUR STUDIO NAME "; // Scrolling text for IDLE mode
 // =============================================================================
 
 // --- PIN & PIXEL CONFIG ---
-#define MATRIX_PIN      18    
-#define INTERNAL_PIN    19   
+#define MATRIX_PIN      6    
+#define INTERNAL_PIN    11   
 #define MATRIX_COUNT    256 
 #define INTERNAL_COUNT  24   
 
@@ -250,4 +250,5 @@ void loop() {
     internal.show();
   }
 }
+
 
