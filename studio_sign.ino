@@ -5,8 +5,8 @@
  * Function: Monitors Studio One via rtpMIDI for transport status.
  *
  * Wiring:
- * - Matrix (Outside): Pin 18 (A4)
- * - Tally Strip (Inside): Pin 19 (A5)
+ * - Matrix (Outside): Pin 6 - Physically wired to Matrix
+ * - Tally Strip (Inside): Pin 11 - Physically wired to Internal Strip
  */
 
 #include <WiFi101.h>
@@ -250,3 +250,4 @@ void loop() {
     internal.show();
   }
 }
+
