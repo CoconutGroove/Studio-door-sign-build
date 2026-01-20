@@ -1,63 +1,55 @@
 # MCU Transport Display: Coconut Groove Studio
 
-A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **ESP32** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix.
+A high-visibility hardware status display for **PreSonus Studio One**. This project uses an **Adafruit Feather M0 WiFi** to emulate a **Mackie Control (MCU)** surface, intercepting transport commands via **rtpMIDI** to drive an 8x32 NeoPixel matrix and internal tally lights.
 
 ---
 
 ## 1. System Logic & Algorithm
-The firmware is designed with a priority-state hierarchy to ensure the display is always accurate and energy-efficient:
+The firmware is designed with a priority-state hierarchy to ensure the display is always accurate and responsive:
 
-* **Stage 1: Connection Health:** The system verifies Wi-Fi status. If disconnected, it triggers "Recovery Mode," pulsing a `No Wifi` message while attempting to reconnect every 5 seconds.
-* **Stage 2: Session Monitoring:** It uses rtpMIDI "Heartbeats" to see if the DAW is active. If the session is closed, the display blanks automatically to prevent LED burn-in.
-* **Stage 3: MCU MIDI Parsing:** The ESP32 listens for specific MIDI Note-On triggers sent by the DAW:
-    * **Note 0x5F (95):** Set State to **RECORD**.
-    * **Note 0x5E (94):** Set State to **PLAYBACK**.
-    * **Note 0x5D (93):** Set State to **IDLE/STOP**.
-* **Stage 4: Rendering Engine:** The code translates (X, Y) coordinates to a **Serpentine Layout** to ensure text scrolls correctly across the zigzag wiring of the matrix.
+* **Stage 1: Connection Health:** The system verifies Wi-Fi status via the ATWINC1500 module. If disconnected, it triggers "Recovery Mode," displaying a pulsing `No Wifi` message while attempting to reconnect.
+* **Stage 2: Static Networking:** Uses a hardcoded Static IP (**192.168.1.202**) to ensure rtpMIDI sessions survive power outages without DHCP IP changes.
+* **Stage 3: Session Monitoring:** It monitors rtpMIDI activity. If no MIDI data is received for 10 seconds, the display blanks automatically to prevent LED burn-in.
+* **Stage 4: MCU MIDI Parsing:** The Feather listens for specific MIDI Note-On triggers:
+    * **Note 0x5F (95):** Set State to **RECORD** (Red Pulse + PPM Meters).
+    * **Note 0x5E (94):** Set State to **PLAYBACK** (Green Scrolling Text).
+    * **Note 0x5D (93):** Set State to **IDLE/STOP** (Blue Scrolling "Coconut Groove").
+* **Stage 5: Rendering Engine:** Translates (X, Y) coordinates to a **Serpentine Layout** for the 8x32 matrix and drives a secondary internal strip for studio-wide tally.
 
 ---
 
 ## 2. Construction Manual
 
 ### Hardware Wiring
-1.  **Matrix (Outside):** Connect Data Input (DI) to **GPIO 18**.
-2.  **Status Strip (Inside):** Connect Data Input (DI) to **GPIO 19**.
-3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. Ensure the ESP32 and LEDs share a **Common Ground** (GND) connection.
+1.  **Matrix (Outside):** Connect Data Input (DI) to **Pin 18** (A4).
+2.  **Status Strip (Inside):** Connect Data Input (DI) to **Pin 19** (A5).
+3.  **Power:** Connect a dedicated **5V 4A power supply** to the LED rails. **Important:** Ensure the Feather GND and LED PSU GND are tied together (Common Ground).
 
 ### Software & Code
-1.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file from this repository.
-2.  **Configuration:** Open the sketch in the Arduino IDE and customise the `ssid`, `pass`, and `STUDIO_NAME` variables at the top of the file.
+1.  **The Sketch:** Download the [studio_sign.ino](./studio_sign.ino) file.
+2.  **Configuration:** Update the `ssid`, `pass`, `local_IP`, and `studioOneIP` variables at the top of the sketch to match your studio network.
 
-### Programming the ESP32
-To get the code onto your device, follow these steps:
-
-1.  **Install Arduino IDE:** Download the latest version from the [Arduino website](https://www.arduino.cc/en/software).
-2.  **Add ESP32 Support:** * Open **File > Preferences**.
-    * In "Additional Boards Manager URLs", paste: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
-    * Go to **Tools > Board > Boards Manager**, search for **ESP32**, and click **Install**.
-3.  **Install Required Libraries:** * Go to **Sketch > Include Library > Manage Libraries**.
-    * Search for and install **Adafruit NeoPixel**.
-    * Search for and install **AppleMIDI**.
-4.  **Connect & Upload:**
-    * Connect your ESP32 via USB.
-    * Select **ESP32 Dev Module** under Tools > Board.
-    * Select your board's COM/USB port under Tools > Port.
-    * Click the **Upload** arrow icon.
+### Programming the Feather M0
+1.  **Install Arduino IDE:** [Download here](https://www.arduino.cc/en/software).
+2.  **Add Adafruit Support:** * Open **File > Preferences**.
+    * Add to Board Manager URLs: `https://adafruit.github.io/arduino-board-index/package_adafruit_index.json`
+    * Go to **Tools > Board > Boards Manager**, search for **Adafruit SAMD**, and install.
+3.  **Install Required Libraries:** * **WiFi101** (Required for Feather M0 WiFi)
+    * **Adafruit NeoPixel**
+    * **AppleMIDI**
+4.  **Connect & Upload:** Select **Adafruit Feather M0** under Tools > Board and click **Upload**.
 
 ---
 
 ## 3. DAW Connectivity
 
-#### **For Mac Users (Native Setup)**
-macOS handles this natively via the "MIDI Network Driver":
-1.  Open **Audio MIDI Setup** (Applications > Utilities).
-2.  Go to **Window > Show MIDI Studio**.
-3.  Double-click the **Network** icon (the globe).
-4.  In the **Directory**, select your ESP32 and click **Connect**. Ensure the session is **Enabled**.
+#### **Network Configuration**
+This sketch uses **Port 5006** to avoid conflicts with default rtpMIDI sessions.
 
-#### **For Windows Users (rtpMIDI)**
+#### **Windows Users (rtpMIDI)**
 1.  Install **rtpMIDI** (by Tobias Erichsen).
-2.  Create a session, find your device in the directory, and click **Connect**.
+2.  Add a **Manual Participant**: `192.168.1.202:5006`.
+3.  Click **Connect**.
 
 #### **Studio One Setup**
 In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Send ports to your newly created Network Session.
@@ -68,15 +60,15 @@ In **Options > External Devices**, add a **Mackie Control**. Set the Receive/Sen
 
 | Component | Specification | Quantity | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Microcontroller** | ESP32 DevBoard | 1 | System Brain |
+| **Microcontroller** | Adafruit Feather M0 WiFi | 1 | System Brain (ATSAMD21) |
 | **LED Matrix** | WS2812B 8x32 Flexible | 1 | External Signage |
 | **Internal LEDs** | WS2812B LED Strip | ~24 LEDs | Internal Studio Tally |
-| **Power Supply** | 5V DC / 4A | 1 | Reliable Power |
+| **Power Supply** | 5V DC / 4A | 1 | High-current LED Power |
 
 ---
 
 ## 5. 📸 Media & Gallery
-A couple of build pics and some videos are here: [Media Gallery](./Media).
+View the build process and the final animations in the [Media Gallery](./Media).
 
 ---
 
@@ -84,18 +76,16 @@ A couple of build pics and some videos are here: [Media Gallery](./Media).
 
 | Issue | Likely Cause | Solution |
 | :--- | :--- | :--- |
-| **"No Wifi" Message** | Network Band Mismatch | Ensure you are using 2.4GHz Wi-Fi. |
-| **Blank Display** | Session Inactive | Verify the device is "Connected" in rtpMIDI or Audio MIDI Setup. |
-| **Garbled Text** | Layout Mismatch | Ensure the matrix is wired in a Serpentine/Zig-Zag pattern. |
-| **Flickering** | Power/Ground | Check common ground and add a 330Ω resistor to data lines. |
+| **"No Wifi" Message** | Band Mismatch | Feather M0 requires **2.4GHz** Wi-Fi. |
+| **rtpMIDI Not Connecting** | Port Mismatch | Ensure rtpMIDI is targeting **Port 5006**. |
+| **Text is Mirrored** | Wiring Direction | Adjust the `drawPixel` logic for Serpentine vs. Progressive layouts. |
+| **Matrix is Flickering** | Voltage Drop | Ensure 5V is injected at the start of the matrix; check Common Ground. |
 
 ---
 
 ## 7. Licence & Support
 This project is shared as **Open Source** under the **MIT Licence**. 
 
-**Important Notice:**
-* This project is provided "as-is" for the community. 
-* **No technical support or troubleshooting assistance is provided.** * You are free to fork the repository and adapt the code for your own studio needs.
+**Notice:** This project is provided "as-is." No technical support is provided. You are free to fork and adapt for your own studio needs.
 
 *Designed for Coconut Groove Studio | 2026*
